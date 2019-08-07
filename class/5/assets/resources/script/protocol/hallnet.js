@@ -6,7 +6,6 @@ var user = require("./../user");
 module.exports = {
 
     S2CCreateRoom(data, cb){
-        cc.log("S2CCreateRoom",data);
         let { code,roomID } = data;
         roomID = ("000000"+roomID).slice(-6);
         if (code == 0){
@@ -15,7 +14,6 @@ module.exports = {
         cb(data);
     },
     S2CJoinRoom(data, cb){
-        cc.log("S2CJoinRoom",data);
         let { code,roomID } = data;
         roomID = ("000000"+roomID).slice(-6);
         if (code == 0){

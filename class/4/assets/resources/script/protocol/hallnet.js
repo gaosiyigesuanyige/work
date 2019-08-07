@@ -16,13 +16,13 @@ module.exports = {
 
     /** 创建房间 */
     C2SCreateRoom(data, cb){
-        let sub = [2,2];
+        let sub = [3,1];
         net.getInstance().send(sub, data, cb);
         cc.log("C2SCreateRoom",sub,data);
     },
     /** 加入房间 */
     C2SJoinRoom(data, cb){
-        let sub = [2,3];
+        let sub = [3,2];
         net.getInstance().send(sub, data, cb);
         cc.log("C2SJoinRoom",sub,data);
     },

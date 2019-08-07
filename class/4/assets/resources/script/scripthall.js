@@ -14,6 +14,7 @@ cc.Class({
     extends: cc.Component,
 
     properties: {
+        handNode:cc.Node,
         panelJoin:cc.Node,
         showNode:cc.Node,
         numberNode:cc.Node,
@@ -171,11 +172,17 @@ cc.Class({
     },
 
     onInitUserInfo(res) {
+        let setUserInfo = (nodeName, val)=>{
+            this.handNode.getChildByName(nodeName).getComponent(cc.Label).string = val;
+        };
         let { code } = res;
         if (code == 0){
             let { nickname } = res;
             user.setProp({nickname});
             cc.log("玩家信息初始化");
+            let { uid } = user.getProp(["uid"]);
+            setUserInfo("id", uid);
+            setUserInfo("name", nickname);
         }
         else{
             cc.log("玩家信息初始化失败");

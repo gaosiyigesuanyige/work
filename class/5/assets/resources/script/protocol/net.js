@@ -21,6 +21,9 @@ var S2CFunc = {
     5:{ // 麻将游戏
         1:["gamenet","S2CGameBegin"],  // 游戏开始
         2:["gamenet","S2CGameEnd"],  // 游戏结束
+        3:["gamenet","S2CGameDeal"],  // 碰杠胡过操作结果
+        4:["gamenet","S2CGameCardInfo"],  // 更新游戏牌信息
+        5:["gamenet","S2CGameRoundInfo"],  // 更新游戏阶段信息
     }
 }
 
@@ -87,14 +90,14 @@ class CNet{
         }
         // 打包发送给服务器
         let req = { sub, data };
-        cc.log("发送协议", req);
+        cc.log("发送协议", sub, data);
         g_WS.send(JSON.stringify(req));
         this.seq[sub] = cb;
     }
     message(messageEvent){
         var res = JSON.parse(messageEvent.data);
         let { sub,data } = res;
-        cc.log("收到协议", res);
+        cc.log("收到协议", sub, data);
         if (data.code){
             cc.log(g_Code[data.code]);
             return;
@@ -112,8 +115,9 @@ class CNet{
             }
         }
         if (temp){
+            cc.log("协议路径", temp[0], temp[1]);
             let func = getFunc(temp[0], temp[1]);
-            cc.log(this.seq);
+            cc.log("seq", this.seq);
             func(data, this.seq[sub]||(()=>{}));
             delete this.seq[sub];
         }

@@ -5,7 +5,6 @@ var net = require("./net");
 module.exports = {
 
     S2CInitUserInfo(data, cb){
-        cc.log("S2CInitUserInfo",data);
         cb(data);
     },
 

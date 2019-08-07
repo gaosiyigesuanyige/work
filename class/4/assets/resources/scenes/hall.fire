@@ -1540,6 +1540,9 @@
       "__id__": 32
     },
     "_enabled": true,
+    "handNode": {
+      "__id__": 6
+    },
     "panelJoin": {
       "__id__": 34
     },

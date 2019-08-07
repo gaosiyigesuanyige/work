@@ -7,12 +7,10 @@ var user = require("./../user");
 module.exports = {
 
     S2CQuitRoom(data, cb){
-        cc.log("S2CQuitRoom",data);
         cb(data);
     },
 
     S2CUpdatePlayerInfo(data, cb){
-        cc.log("S2CUpdatePlayerInfo",data);
         let { code,roomID,player } = data;
         // roomID = ("000000"+roomID).slice(-6);
         if (code == 0){
@@ -21,8 +19,8 @@ module.exports = {
             let userInfo = user.getProp(["uid"]);
             let indexoff = player[userInfo["uid"]]["index"]-1;
             for (let uid in player){
-                let dt = player[uid];
-                gameManager.setPlayerInfo(uid, dt);
+                let pdate = player[uid];
+                gameManager.setPlayerInfo(uid, pdate);
                 let pos = player[uid]["index"] - indexoff;
                 if (pos <= 0){
                     pos += 4;

@@ -38,15 +38,15 @@ class CNet{
         this.connect = false;
     }
     /** 创建ws连接 */
-    createWebSocket(){
+    createWebSocket(cb){
         cc.log("createWebSocket");
         let user = require("./../user");
         let { wsURL } = user.getProp(["wsURL"]);
         g_WS = new WebSocket(wsURL);
-        g_Net.init();
+        g_Net.init(cb);
     }
     /** 初始化操作，一般是监听ws，每次连接ws之后，都需要init一次 */
-    init(){
+    init(cb){
         if (!g_WS){
             cc.log("WebSocket未连接");
             return;
@@ -54,6 +54,9 @@ class CNet{
         g_WS.onopen = (res)=>{
             cc.log("WebSocket is connect");
             this.connect = true;
+            if (cb){
+                cb();
+            }
         };
         g_WS.onmessage = (res)=>{
             this.message(res);
@@ -76,7 +79,6 @@ class CNet{
         }
         // 打包发送给服务器
         let req = { sub, data };
-        cc.log(g_WS,'-----------------')
         g_WS.send(JSON.stringify(req));
         this.seq[sub] = cb;
     }

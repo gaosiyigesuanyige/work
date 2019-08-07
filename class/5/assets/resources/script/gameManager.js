@@ -5,6 +5,15 @@
  */
 
 class GamePlayer{
+    /**
+     * data = {
+     *      uid:Number,
+     *      hand:Array, // 手牌
+     *      deal:Array, // 已处理牌
+     *      out:Array,  // 已出牌
+     *      touch:Number,  // 摸牌
+     * }
+     */
     constructor(uid){
         this.uid = uid;
         this.data = {uid};
@@ -31,9 +40,12 @@ var GameManager = {
             roundtime:0,
             /** 当前操作人id */
             op:0,
+            /** 回合状态：1-已摸牌 2-已出牌 3-已碰牌 */
+            roundstate:1,
         },
         /** 记录每个玩家的逻辑位置 */
         uid2pos:{},
+        nowCard:0,
     },
     version:0,  // 管理器记录数据版本
     /** 获取单个玩家信息 */
@@ -45,6 +57,7 @@ var GameManager = {
     },
     /** 设置单个玩家信息 */
     setPlayer(uid, data){
+        cc.log('setPlayer',uid)
         if (!GameManager.player[uid]){
             GameManager.player[uid] = new GamePlayer(uid);
         }
@@ -53,6 +66,7 @@ var GameManager = {
     },
     /** 删除玩家数据 */
     delPlayer(uid){
+        cc.log('delPlayer',uid)
         if (GameManager.player[uid]){
             delete GameManager.player[uid];
         }

@@ -1,6 +1,8 @@
 
 var roomnet = require("./protocol/roomnet");
+var gamenet = require("./protocol/gamenet")
 var gameManager = require("./gameManager");
+var gameLogic = require("./gameLogic");
 var user = require("./user");
 
 /** 枚举对应预制名字前缀 */
@@ -30,6 +32,7 @@ cc.Class({
         let { roomID } = user.getProp(["roomID"]);
         let roomIDNode = this.mainNode.getChildByName("roomID");
         roomIDNode.getComponent(cc.Label).string = "房间ID：" + roomID;
+        this.hidePanelDeal();
     },
 
     /** 初始化玩家信息设置 */
@@ -47,6 +50,19 @@ cc.Class({
         doFunc("player_info4");
     },
 
+    /** 操作界面内容隐藏 */
+    hidePanelDeal() {
+        let panelDeal = this.mainNode.getChildByName("paneldeal");
+        let pengNode = panelDeal.getChildByName("peng");
+        let gangNode = panelDeal.getChildByName("gang");
+        let huNode = panelDeal.getChildByName("hu");
+        let guoNode = panelDeal.getChildByName("guo");
+        pengNode.active = false;
+        gangNode.active = false;
+        huNode.active = false;
+        guoNode.active = false;
+    },
+
     /** 点击按钮，根据customEventData来区分 */
     onClickButton(event, customEventData) {
         switch (customEventData){
@@ -56,8 +72,8 @@ cc.Class({
                 subNode.active = !subNode.active;
                 // this.delHandCard(1, 121);   // test，测试删除手牌
                 // this.addNewCard(121);
-                this.delDealCard(1, 11);   // test，测试删除杠碰牌
-                this.delOutCard(1, 111);   // test，测试删除已出牌
+                // this.delDealCard(1, 11);   // test，测试删除杠碰牌
+                // this.delOutCard(1, 111);   // test，测试删除已出牌
                 break;
             }
             case "退出":{
@@ -80,10 +96,135 @@ cc.Class({
                 this.doClickHandCard(event, 2);
                 break;
             }
+            case "碰":{
+                this.doClickDeal(1);
+                break;
+            }
+            case "杠":{
+                this.doClickDeal(2);
+                break;
+            }
+            case "胡":{
+                this.doClickDeal(3);
+                break;
+            }
+            case "过":{
+                this.doClickDeal(4);
+                break;
+            }
             default:{
                 cc.log("未设置对按钮事件的处理", customEventData);
             }
         }
+    },
+
+    /** 通过当前已出牌找到手牌、刚配牌里面所有相同值的牌 */
+    findSameCardForNowOut() {
+        let { uid } = user.getProp(["uid"]);
+        let userPlayerInfo = gameManager.getPlayerInfo(uid);
+        let { hand,deal } = userPlayerInfo["card"];
+        let gameInfo = gameManager.getGameInfo();
+        let playerInfo = gameManager.getPlayerInfo(gameInfo.round.op);
+        let { out } = playerInfo["card"];
+        let card = {hand:[],deal:[]};
+        if (!out || out.length == 0){
+            return card;
+        }
+        let val = out[out.length-1] % 100;
+        for (let cardID of hand){
+            if (cardID % 100 ==val){
+                card["hand"].push(cardID);
+            }
+        }
+        for (let cardID of deal){
+            if (cardID % 100 ==val){
+                card["deal"].push(cardID);
+            }
+        }
+        return card;
+    },
+
+    /** 点击杠碰胡过（2/3/4/5）处理按钮 */
+    doClickDeal(op) {
+        let Play = (path)=>{
+            if (!this.mainNode.getChildByName("deal")){
+                cc.loader.loadRes("prefab/dealclip", cc.Prefab, (err, prefab)=>{
+                    if (err){
+                        cc.log("杠碰预制加载失败");
+                        return;
+                    }
+                    let newDealNode = cc.instantiate(prefab);
+                    let clip = newDealNode.getComponent(cc.Animation);
+                    this.mainNode.addChild(newDealNode);
+                    clip.once("finished", ()=>{
+                        newDealNode.removeFromParent(true);
+                    })
+                    cc.loader.loadRes(path, cc.SpriteFrame, (err2, spriteFrame)=>{
+                        if (err2){
+                            cc.log("杠碰资源加载失败");
+                            return;
+                        }
+                        newDealNode.getComponent(cc.Sprite).spriteFrame = spriteFrame;
+                        clip.play()
+                    });
+                });
+            }
+        };
+        let resPath = "";
+        switch (op){
+            case 1:{
+                let card = gameLogic.isPeng();
+                // let card = this.findSameCardForNowOut();
+                let req = { op:2,card };
+                gamenet.C2SGameDeal(req, ()=>{
+                    cc.log("执行碰牌");
+                });
+                resPath = "image/icon/splash_1";
+                break;
+            }
+            case 2:{
+                let card = gameLogic.isGang();
+                // let card = this.findSameCardForNowOut();
+                let req = { op:3,card };
+                gamenet.C2SGameDeal(req, ()=>{
+                    cc.log("执行杠牌");
+                });
+                resPath = "image/icon/splash_2";
+                break;
+            }
+            case 3:{
+                // let card = this.findSameCardForNowOut();
+                let req = { op:4,card:[] };
+                gamenet.C2SGameDeal(req, ()=>{
+                    cc.log("执行胡牌");
+                });
+                resPath = "image/icon/splash_3";
+                break;
+            }
+            case 4:{
+                let req = { op:5,card:[] };
+                gamenet.C2SGameDeal(req, ()=>{
+                    cc.log("执行过牌");
+                });
+                break;
+            }
+            default:{
+                cc.log("没有对应的处理操作", op);
+                break;
+            }
+        }
+        this.hidePanelDeal();
+        if (resPath){
+            Play(resPath);
+        }
+    },
+
+    /** 出牌操作 */
+    doOutCard(cid) {
+        let req = { op:1,card:[cid] };
+        gamenet.C2SGameDeal(req, ()=>{
+            cc.log("执行出牌");
+        });
     },
     
     /** 点击手牌，type：1-手牌 2-摸牌 */
@@ -114,6 +255,7 @@ cc.Class({
                     }
                     else{
                         cc.log("第二次点击手牌",idx);
+                        this.doOutCard(c.cid);
                     }
                 }
                 else{
@@ -148,6 +290,7 @@ cc.Class({
                 }
                 else{
                     cc.log("第二次点击摸牌");
+                    this.doOutCard(c.cid);
                 }
             }
         }
@@ -245,6 +388,7 @@ cc.Class({
         if (newCardNode.childrenCount == 0){
             let newCard = new cc.Node();
             let newSp = newCard.addComponent(cc.Sprite);
+            newCard.cid = cid;
             newSp.spriteFrame = spriteFrame;
             newCardNode.addChild(newCard);
         }
@@ -402,9 +546,8 @@ cc.Class({
             cc.log("缺少用户本人的玩家信息");
             return;
         }
-        // let indexoff = infos[userInfo["uid"]]["index"]-1;
         let gameInfo = gameManager.getGameInfo();
-        for (let uid in infos){
+        for (let uid in infos){ // 遍历所有玩家
             let { nickname,index,card } = infos[uid];
             let pos = gameInfo.uid2pos[uid];
             let theNode = this.mainNode.getChildByName("player_info"+pos);
@@ -414,55 +557,89 @@ cc.Class({
 
             if (card){
                 this.clearAllCard(pos); // 先清理掉手牌、杠碰牌、已出牌
-                let { hand,deal,out } = card;
-                let lastCard;
-                if (uid == userInfo["uid"] && hand.length == 14){
-                    lastCard = hand[hand.length-1];
-                    this.addNewCard(lastCard);
+                let { hand,deal,out,touch } = card;
+                if (touch && uid == userInfo["uid"]){   // 处理摸牌
+                    this.addNewCard(touch);
                 }
-                for (let cid of hand){
-                    if (uid == userInfo["uid"] && lastCard == cid){
-                        continue;
+                hand.sort((a,b)=>{return a%100 - b%100});   // 手牌排序
+                for (let cid of hand){  // 手牌
+                    if (touch != cid || uid != userInfo["uid"]){    // 摸牌，自己不放入手牌，他人放入手牌
+                        this.addHandCard(pos, cid);
                     }
-                    this.addHandCard(pos, cid);
                 }
-                for (let dcid of deal){
+                for (let dcid of deal){ // 处理牌
                     let cid = dcid % 1000;
                     let full = dcid > 1000;
                     this.addDealCard(pos, cid, full);
                 }
-                for (let cid of out){
+                for (let cid of out){   // 出牌
                     this.addOutCard(pos, cid);
                 }
             }
         }
     },
 
-    doRefreshRound(dt) {
+    /** 处理操作检测 */
+    doCheckOperation() {
+        let { round:{ roundstate,op } } = gameManager.getGameInfo();
+        if (roundstate != 2){    // 非已出牌阶段跳过检测
+            this.roundState = 0;
+            return;
+        }
+        if (this.roundState == 2){  // 已出牌阶段只处理一次
+            return;
+        }
+        this.roundState = 2;
+        let panelDeal = this.mainNode.getChildByName("paneldeal");
+        let pengNode = panelDeal.getChildByName("peng");
+        let gangNode = panelDeal.getChildByName("gang");
+        let huNode = panelDeal.getChildByName("hu");
+        let guoNode = panelDeal.getChildByName("guo");
+        pengNode.active = false;
+        gangNode.active = false;
+        huNode.active = false;
+        guoNode.active = false;
+        let { uid } = user.getProp(["uid"]);
+        if (op == uid){ // 自己出牌执行跳过操作
+            let req = { op:5,card:[] };
+            gamenet.C2SGameDeal(req, ()=>{});
+            return;
+        }
+        if (gameLogic.isHu()){  // 胡
+            huNode.active = true;
+        }
+        if (gameLogic.isPeng()){    // 碰
+            pengNode.active = true;
+        }
+        if (gameLogic.isGang()){    // 杠
+            gangNode.active = true;
+        }
+
+        if (pengNode.active || gangNode.active || huNode.active){
+            guoNode.active = true;
+        }
+        else{
+            guoNode.active = false;
+            let req = { op:5,card:[] };
+            gamenet.C2SGameDeal(req, ()=>{});
+        }
+    },
+
+    /** 处理倒计时 */
+    doRefreshRound() {
         let roundNode = this.mainNode.getChildByName("round");
-        if (roundNode.active){  // 已激活
-            if (roundNode.showTime){
-                roundNode.showTime -= dt;
-            }
-            else{
-                roundNode.showTime = 0;
-            }
-            if (roundNode.showTime <= 0){
-                roundNode.showTime = 0;
-                roundNode.active = false;
-            }
+        let gameInfo = gameManager.getGameInfo();
+        let { roundtime,op,roundstate } = gameInfo.round;
+        let nowTime = (new Date()).getTime();
+        if (roundtime > nowTime){
+            roundNode.active = true;
+            roundNode.showTime = (roundtime - nowTime)/1000;
+            roundNode.getChildByName("round").angle = 90-gameInfo.uid2pos[op]*90;
             roundNode.getChildByName("time").getComponent(cc.Label).string = Math.ceil(roundNode.showTime);
         }
-        else{   // 未激活
-            let nowTime = (new Date()).getTime();
-            let gameInfo = gameManager.getGameInfo();
-            let { roundtime,op } = gameInfo.round;
-            if (roundtime > nowTime){
-                roundNode.active = true;
-                roundNode.showTime = (roundtime - nowTime)/1000;
-                roundNode.getChildByName("round").angle = 90-gameInfo.uid2pos[op]*90;
-                roundNode.getChildByName("time").getComponent(cc.Label).string = Math.ceil(roundNode.showTime);
-            }
+        else if (roundNode.active){
+            // 超时
+            roundNode.getChildByName("time").getComponent(cc.Label).string = "0";
         }
     },
 
@@ -499,6 +676,7 @@ cc.Class({
     onLoad () {
         this.frameTime = 0;    // 帧计时，记录每帧+1
         this.infoVersion = 0;   // 数据版本
+        this.roundState = 0;    // 当前游戏状态
         // this.playerPos = {};    // 玩家逻辑位置{玩家id:pos}
         this.handCards = {};    // 手牌，{玩家id:{牌id:具体牌对象}}
         this.dealCards = {};    // 杠碰牌，{玩家id:{牌id:具体牌对象}}
@@ -508,14 +686,15 @@ cc.Class({
     start () {
         this.init();
         this.initForPlayerInfo();
-        this.test();    // 单机测试
+        // this.test();    // 单机测试
     },
 
     update (dt) {
         this.frameTime++;
         if (this.frameTime % 30 == 0){
             this.doLoadPlayerInfo();
+            this.doCheckOperation();
+            this.doRefreshRound();
         }
-        this.doRefreshRound(dt);
     },
 });
